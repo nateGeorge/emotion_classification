@@ -1,8 +1,12 @@
 import os
 from urllib.request import urlretrieve
 
+import spacy
+import swifter
 import pandas as pd
+import pycaret.classification as pycc
 
+nlp = spacy.load('en_core_web_lg')
 
 def download_liu_training_data():
     """
@@ -89,4 +93,37 @@ def load_combine_saif_liu_data():
     """
     liu_df = load_prepare_liu_data()
     saif_df = load_prepare_saif_data()
-    return pd.concat([liu_df, saif_df], axis=0)
+    return pd.concat([liu_df, saif_df], axis=0).reset_index(drop=True)
+
+
+def get_text_vector(x):
+    """
+    Gets text vector from input string.
+    """
+    t = nlp(x)
+    return t.vector
+
+
+if __name__ == "__main__":
+    df = load_combine_saif_liu_data()
+    sample=False
+    if sample:
+        df = df.groupby('emotion',
+                group_keys=False).apply(lambda x: x.sample(min(len(x), 100)))
+
+
+    vector_df_filepath = 'data/vector_df.csv'
+    if os.path.exists(vector_df_filepath):
+        vector_df = pd.read_csv(vector_df_filepath)
+    else:
+        vectors = df['tweet'].swifter.apply(get_text_vector)
+        vector_df = pd.DataFrame(vectors.array,
+                        columns=[f'v{r}' for r in range(vectors.iloc[0].shape[0])])
+        vector_df.to_csv(vector_df_filepath)
+
+    data_df = pd.concat([vector_df, pd.DataFrame(df['emotion']).reset_index(drop=True)],
+                    axis=1)
+
+    models = pycc.setup(data=data_df, target='emotion', session_id=123)
+
+    best = pycc.compare_models()
