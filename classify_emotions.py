@@ -1,4 +1,5 @@
 import os
+import pickle as pk
 from urllib.request import urlretrieve
 
 import spacy
@@ -127,3 +128,7 @@ if __name__ == "__main__":
     models = pycc.setup(data=data_df, target='emotion', session_id=123)
 
     best = pycc.compare_models()
+
+    pycc.save_model(best, 'lr_emotion.model')
+    with open('pycc_setup.pk', 'wb') as f:
+        pk.dump(models, f)
